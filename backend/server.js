@@ -4,11 +4,18 @@ const { createServer } = require('http');
 const cors = require('cors');
 const WebSocket = require('ws');
 const { Server } = require('socket.io');
+const bodyParser = require('body-parser');
+const webrtc = require("wrtc");
 
 const app = express();
 
 app.use(cors());
 app.use('/static', express.static(path.join(__dirname, 'public')));
+
+let senderStream;
+app.use(express.static('public'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 let clients = [];
 
@@ -112,6 +119,50 @@ app.get('/get_gears/:gear', (req, res) => {
     }
     res.json(value);
 });
+
+app.post("/consumer", async ({ body }, res) => {
+    const peer = new webrtc.RTCPeerConnection({
+        iceServers: [
+            {
+                urls: "stun:stun.stunprotocol.org"
+            }
+        ]
+    });
+    const desc = new webrtc.RTCSessionDescription(body.sdp);
+    await peer.setRemoteDescription(desc);
+    senderStream.getTracks().forEach(track => peer.addTrack(track, senderStream));
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+    const payload = {
+        sdp: peer.localDescription
+    }
+
+    res.json(payload);
+});
+
+app.post('/broadcast', async ({ body }, res) => {
+    const peer = new webrtc.RTCPeerConnection({
+        iceServers: [
+            {
+                urls: "stun:stun.stunprotocol.org"
+            }
+        ]
+    });
+    peer.ontrack = (e) => handleTrackEvent(e, peer);
+    const desc = new webrtc.RTCSessionDescription(body.sdp);
+    await peer.setRemoteDescription(desc);
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+    const payload = {
+        sdp: peer.localDescription
+    }
+
+    res.json(payload);
+});
+
+function handleTrackEvent(e, peer) {
+    senderStream = e.streams[0];
+};
   
 app.post('/motor_state/:gear/in_progress', (req, res) => {
     var value;
