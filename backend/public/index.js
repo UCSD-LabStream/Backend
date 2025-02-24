@@ -1,40 +1,46 @@
-window.onload = () => {
-    document.getElementById('my-button').onclick = () => {
-        init();
-    }
-}
+// const ws = new WebSocket('ws://13.57.216.198:8555');
+const ws = new WebSocket('ws://localhost:8555');
+
+var peer = new Peer();
+let hostId;
+let hostVideo;
+let viewerIds = [];
+let call;
+let localStream;
 
 async function init() {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    document.getElementById("video").srcObject = stream;
-    const peer = createPeer();
-    stream.getTracks().forEach(track => peer.addTrack(track, stream));
+    let stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+    localStream = stream;
+    hostVideo = document.getElementById('video');
+    hostVideo.srcObject = localStream;
 }
 
+peer.on('open', function(id) {
+    hostId = id;
+});
 
-function createPeer() {
-    const peer = new RTCPeerConnection({
-        iceServers: [
-            {
-                urls: "stun:stun.stunprotocol.org"
+ws.addEventListener('open', async (event) => {
+    await new Promise(resolve => {
+        const checkHostId = setInterval(() => {
+            if (typeof hostId !== 'undefined') {
+                clearInterval(checkHostId);
+                resolve();
             }
-        ]
+        }, 100);
     });
-    peer.onnegotiationneeded = () => handleNegotiationNeededEvent(peer);
 
-    return peer;
-}
+    ws.send(JSON.stringify({
+        'client': '8555',
+        'operation': 'connecting',
+        'hostId': hostId
+    }));
+});
 
-async function handleNegotiationNeededEvent(peer) {
-    const offer = await peer.createOffer();
-    await peer.setLocalDescription(offer);
-    const payload = {
-        sdp: peer.localDescription
-    };
+ws.addEventListener('message', (event) => {
+    call = peer.call(event.data, localStream)
+    let exampleText = document.getElementById('example-text')
+    exampleText.innerHTML = event.data;
+})
 
-    const { data } = await axios.post('/broadcast', payload);
-    const desc = new RTCSessionDescription(data.sdp);
-    peer.setRemoteDescription(desc).catch(e => console.log(e));
-}
-
+init()
 

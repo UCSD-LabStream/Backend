@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
-    <script src='index.js'></script>
+    <script src="peerjs.min.js"></script>
+    <script src='index.js' type="module"></script>
 </head>
 <body>
+    <h1 id='example-text'></h1>
     <button id='my-button'>Start Stream</button>
-    <video autoplay id="video"></video>
+    <video autoplay playsinline id="video"></video>
 </body>
 </html>

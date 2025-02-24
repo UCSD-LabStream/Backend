@@ -5,7 +5,6 @@ const cors = require('cors');
 const WebSocket = require('ws');
 const { Server } = require('socket.io');
 const bodyParser = require('body-parser');
-const webrtc = require("wrtc");
 
 const app = express();
 
@@ -119,50 +118,6 @@ app.get('/get_gears/:gear', (req, res) => {
     }
     res.json(value);
 });
-
-app.post("/consumer", async ({ body }, res) => {
-    const peer = new webrtc.RTCPeerConnection({
-        iceServers: [
-            {
-                urls: "stun:stun.stunprotocol.org"
-            }
-        ]
-    });
-    const desc = new webrtc.RTCSessionDescription(body.sdp);
-    await peer.setRemoteDescription(desc);
-    senderStream.getTracks().forEach(track => peer.addTrack(track, senderStream));
-    const answer = await peer.createAnswer();
-    await peer.setLocalDescription(answer);
-    const payload = {
-        sdp: peer.localDescription
-    }
-
-    res.json(payload);
-});
-
-app.post('/broadcast', async ({ body }, res) => {
-    const peer = new webrtc.RTCPeerConnection({
-        iceServers: [
-            {
-                urls: "stun:stun.stunprotocol.org"
-            }
-        ]
-    });
-    peer.ontrack = (e) => handleTrackEvent(e, peer);
-    const desc = new webrtc.RTCSessionDescription(body.sdp);
-    await peer.setRemoteDescription(desc);
-    const answer = await peer.createAnswer();
-    await peer.setLocalDescription(answer);
-    const payload = {
-        sdp: peer.localDescription
-    }
-
-    res.json(payload);
-});
-
-function handleTrackEvent(e, peer) {
-    senderStream = e.streams[0];
-};
   
 app.post('/motor_state/:gear/in_progress', (req, res) => {
     var value;
@@ -205,6 +160,10 @@ process.on('uncaughtException', (error, origin) => {
 // Clients
 const wss = new WebSocket.Server({port: '8555'}, () => console.log(`WS Client Server is listening on 8555`));
 
+let hostPeerId;
+let viewerPeerIds = [];
+let hostWS;
+
 wss.on('connection', ws => {
 	ws.on('message', data => {
 		console.log("Someone's connecting!")
@@ -213,13 +172,17 @@ wss.on('connection', ws => {
 
 		try {
 			data = JSON.parse(data);
-		
-			if(data.operation === 'command') {
-				if(devices[data.command.recipient]) {
-					devices[data.command.recipient].command = data.command.message.key + '=' + data.command.message.value;
-				}
-			}
-		} catch (error) {}
+			console.log(data);
+            if ('hostId' in data) {
+                hostPeerId = data.hostId;
+                hostWS = ws;
+            } else if ('viewerId' in data) {
+                viewerPeerIds.push(data.viewerId);
+                hostWS.send(data.viewerId);
+            } else {
+                console.log("idk what's going on, but something's wrong!");
+            }
+		} catch (error) { console.log("something went wrong with sending the host id!") }
 	});
 });
 
