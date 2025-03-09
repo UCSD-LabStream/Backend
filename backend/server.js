@@ -1,10 +1,11 @@
 const path = require('path');
 const express = require('express');
-const { createServer } = require('http');
+const { createServer } = require('https');
 const cors = require('cors');
 const WebSocket = require('ws');
 const { Server } = require('socket.io');
 const bodyParser = require('body-parser');
+const fs = require("fs");
 
 const app = express();
 
@@ -19,11 +20,18 @@ app.use(bodyParser.urlencoded({ extended: true }));
 let clients = [];
 
 const HTTP_PORT = 8080;
+
+
 let devices = {
 	relay_module1: { port: 8888 },
 };
 
-const httpServer = createServer(app);
+const options = {
+    key: fs.readFileSync("/etc/ssl/private/privkey.pem"),
+    cert: fs.readFileSync("/etc/ssl/certs/fullchain.pem"),
+};
+
+const httpServer = createServer(options, app);
 const io = new Server(httpServer, {
     path: '/labstream/socket.io',
     cors: {
@@ -139,32 +147,32 @@ process.on('uncaughtException', (error, origin) => {
 	console.log('----- Status -----');
 });
 
-// Clients
-const wss = new WebSocket.Server({port: '8555'}, () => console.log(`WS Client Server is listening on 8555`));
+const cameraServer = new Server(httpServer, {
+	path: '/camera/socket.io',
+	cors: {
+		origin: '*',
+		methods: ['GET', 'POST']
+	}
+});
 
-let hostPeerId;
+let hostSocket;
 let viewerPeerIds = [];
-let hostWS;
+let hostPeerId;
 
-wss.on('connection', ws => {
-	ws.on('message', data => {
-		console.log("Someone's connecting!")
-		if (ws.readyState !== ws.OPEN) return;
-		clients.push(ws);
-
-		try {
-			data = JSON.parse(data);
-			console.log(data);
-            if ('hostId' in data) {
-                hostPeerId = data.hostId;
-                hostWS = ws;
-            } else if ('viewerId' in data) {
-                viewerPeerIds.push(data.viewerId);
-                hostWS.send(data.viewerId);
-            } else {
-                console.log("idk what's going on, but something's wrong!");
-            }
-		} catch (error) { console.log("something went wrong with sending the host id!") }
+cameraServer.on('connection', (socket) => {
+	console.log("Viewer or streamer joined");
+	clients.push(socket);
+	socket.on('stream_start', (data) => {
+		data = JSON.parse(data);
+		console.log(data);
+		hostPeerId = data.hostId;
+		hostSocket = socket;
+	});
+	socket.on('stream_view', (data) => {
+		data = JSON.parse(data);
+		console.log(data);
+		viewerPeerIds.push(data.viewerId);
+		hostSocket.emit('viewer_join', data.viewerId);
 	});
 });
 
