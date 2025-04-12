@@ -1,5 +1,5 @@
-const socket = io("https://labstream.ucsd.edu", {
-	path: '/camera/socket.io',
+const socket = io("https://labstream.ucsd.edu/api/", {
+	path: 'camera/socket.io',
 });
 
 var peer = new Peer();
@@ -12,14 +12,13 @@ peer.on('open', function(id) {
 peer.on('call', function(call) {
 	call.answer();
 	call.on('stream', (stream) => {
-		let hostVideo = document.getElementById('video');
-	let videoTracks = stream.getVideoTracks();
-		let stream1 = new MediaStream([videoTracks[0]]);
-		if (videoTracks.length > 1) {
-			let stream2 = new MediaStream([videoTracks[1]]);
-			document.getElementById('video2').srcObject = stream2;
+		let videoTracks = stream.getVideoTracks();
+		for (let i = 0; i < videoTracks.length; i++) {
+			if (!document.getElementById(`video${i}`)) {
+				document.getElementById('main-page').innerHTML += `<video playsinline autoplay id='video${i}'></video>`;
+			}
+			document.getElementById(`video${i}`).srcObject = new MediaStream([videoTracks[i]]);
 		}
-    	hostVideo.srcObject = stream1;
 	})
   });
 

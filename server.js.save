@@ -6,6 +6,7 @@ const WebSocket = require('ws');
 const { Server } = require('socket.io');
 const bodyParser = require('body-parser');
 const fs = require("fs");
+const mqtt = require('mqtt');
 
 const app = express();
 
@@ -23,7 +24,7 @@ const HTTP_PORT = 8080;
 
 
 let devices = {
-	relay_module1: { port: 8888 },
+   relay_module1: { port: 8888 },
 };
 
 const options = {
@@ -47,6 +48,12 @@ let state = {
     lastAdjusted: null
 };
 
+const client = mqtt.connect('ws://labstream.ucsd.edu:9001/');
+
+client.on('connect', () => {
+    console.log('Connected to MQTT broker!');
+    client.subscribe('motor_control');
+});
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -58,9 +65,11 @@ io.on('connection', (socket) => {
         switch(gear) {
             case 1:
                 state.filterMotor = value;
+		client.publish("motor_control", 10);
                 break;
             case 2:
                 state.imageMotor = value;
+		client.publish("motor_control", "10");
                 break;
         }
 
@@ -108,7 +117,7 @@ app.get('/get_gears/:gear', (req, res) => {
     }
     res.json(value);
 });
-  
+
 app.post('/motor_state/:gear/in_progress', (req, res) => {
     var value;
     if (req.params.gear === "1") {
@@ -148,7 +157,7 @@ process.on('uncaughtException', (error, origin) => {
 });
 
 const cameraServer = new Server(httpServer, {
-	path: '/camera/socket.io',
+	path: '/camera',
 	cors: {
 		origin: '*',
 		methods: ['GET', 'POST']
@@ -175,38 +184,5 @@ cameraServer.on('connection', (socket) => {
 		hostSocket.emit('viewer_join', data.viewerId);
 	});
 });
-
-// Devices
-Object.entries(devices).forEach(([key]) => {
-	const device = devices[key];
-	
-	new WebSocket.Server({port: device.port}, () => console.log(`WS Device Server is listening on ${device.port}`)).on('connection',(ws) => {
-		ws.on('message', data => {
-			if (ws.readyState !== ws.OPEN) return;
-
-			if (device.command) {
-				ws.send(device.command);
-				device.command = null; // Consume
-			}
-
-			if (typeof data === 'object') {
-				device.image = Buffer.from(Uint8Array.from(data)).toString('base64');
-			} else {
-				device.peripherals = data.split(",").reduce((acc, item) => {
-					const key = item.split("=")[0];
-					const value = item.split("=")[1];
-					acc[key] = value;
-					return acc;
-				}, {});
-			}
-
-			clients.forEach(client => {
-				client.send(JSON.stringify({ devices: devices }));
-			});
-		});
-	});
-});
-
-app.get('/client',(_req,res)=>{ res.sendFile(path.resolve(__dirname,'./public/client.html')); });
 
 httpServer.listen(HTTP_PORT,()=>{ console.log(`HTTP server starting on ${HTTP_PORT}`); });

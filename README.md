@@ -18,4 +18,4 @@ To start the development server:
 
 The server will start on port 8080. You can access:
 
-Backend status page: http://localhost:8080/labstream
+Backend status page: http://localhost:8080
