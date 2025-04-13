@@ -52,7 +52,6 @@ const client = mqtt.connect('ws://labstream.ucsd.edu:9001/');
 
 client.on('connect', () => {
     console.log('Connected to MQTT broker!');
-    client.subscribe('motor_control');
 });
 
 // Socket.IO connection handling
@@ -65,11 +64,11 @@ io.on('connection', (socket) => {
         switch(gear) {
             case 1:
                 state.filterMotor = value;
-		client.publish("filter_motor", String(value));
+		        client.publish("filter_motor", String(value));
                 break;
             case 2:
                 state.imageMotor = value;
-		client.publish("image_motor", String(value));
+		        client.publish("image_motor", String(value));
                 break;
         }
 
