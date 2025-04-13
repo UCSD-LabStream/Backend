@@ -22,7 +22,6 @@ let clients = [];
 
 const HTTP_PORT = 8080;
 
-
 let devices = {
    relay_module1: { port: 8888 },
 };
