@@ -27,10 +27,10 @@ let devices = {
    relay_module1: { port: 8888 },
 };
 
-const options = {
-    key: fs.readFileSync("/etc/ssl/private/privkey.pem"),
-    cert: fs.readFileSync("/etc/ssl/certs/fullchain.pem"),
-};
+// const options = {
+//     key: fs.readFileSync("/etc/ssl/private/privkey.pem"),
+//     cert: fs.readFileSync("/etc/ssl/certs/fullchain.pem"),
+// };
 
 const httpServer = createServer(options, app);
 const io = new Server(httpServer, {
