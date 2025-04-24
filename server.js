@@ -48,10 +48,20 @@ let state = {
     lastAdjusted: null
 };
 
-const client = mqtt.connect('ws://labstream.ucsd.edu:9001/');
+const client = mqtt.connect('https://labstream.ucsd.edu/mqtt');
 
 client.on('connect', () => {
     console.log('Connected to MQTT broker!');
+    client.subscribe('filter_motor');
+    client.subscribe('image_motor')
+});
+
+client.on('message', (topic, message) => {
+    if (topic === 'filter_motor' && message.toString() === '3') {
+        socket.emit('filter_motor_done');
+    } else if (topic === 'image_motor' && message.toString() === '3') {
+        socket.emit('image_motor_done');
+    }
 });
 
 // Socket.IO connection handling
