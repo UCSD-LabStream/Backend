@@ -43,24 +43,32 @@ const io = new Server(httpServer, {
 
 // State management
 let state = {
-    imageMotor: 0,
-    filterMotor: 0,
+    imageMotorH: "stop",
+    imageMotorV: "stop",
+    filterMotorH: "stop",
+    filterMotorV: "stop",
     lastAdjusted: null
 };
 
-const client = mqtt.connect('https://labstream.ucsd.edu/mqtt');
+const client = mqtt.connect('wss://labstream.ucsd.edu/mqtt');
 
 client.on('connect', () => {
     console.log('Connected to MQTT broker!');
-    client.subscribe('filter_motor');
-    client.subscribe('image_motor')
+    client.subscribe('filter_motor_H');
+    client.subscribe('filter_motor_V');
+    client.subscribe('image_motor_H');
+    client.subscribe('image_motor_V');
 });
 
 client.on('message', (topic, message) => {
-    if (topic === 'filter_motor' && message.toString() === '3') {
-        socket.emit('filter_motor_done');
-    } else if (topic === 'image_motor' && message.toString() === '3') {
-        socket.emit('image_motor_done');
+    if (topic === 'filter_motor_H' && message.toString() === '3') {
+        socket.emit('filter_motor_H_done');
+    } else if (topic === 'filter_motor_V' && message.toString() === '3') {
+        socket.emit('filter_motor_V_done');
+    } else if (topic === 'image_motor_H' && message.toString() === '3') {
+        socket.emit('image_motor_H_done');
+    } else if (topic === 'image_motor_V' && message.toString() === '3') {
+        socket.emit('image_motor_V_done');
     }
 });
 
@@ -73,12 +81,20 @@ io.on('connection', (socket) => {
 
         switch(gear) {
             case 1:
-                state.filterMotor = value;
-                client.publish("filter_motor", String(value));
+                state.filterMotorH = value;
+                client.publish("filter_motor_H", String(value));
                 break;
-            case 2:
-                state.imageMotor = value;
-                client.publish("image_motor", String(value));
+	    case 2:
+                state.filterMotorV = value;
+                client.publish("filter_motor_V", String(value));
+                break;
+            case 3:
+                state.imageMotorH = value;
+                client.publish("image_motor_H", String(value));
+                break;
+	    case 4:
+                state.imageMotorV = value;
+                client.publish("image_motor_V", String(value));
                 break;
         }
 
@@ -92,8 +108,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('gear_state', () => {
-        state.filterMotor = 0;
-        state.imageMotor = 0;
+        state.filterMotorH = "stop";
+	state.filterMotorV = "stop";
+        state.imageMotorH = "stop";
+	state.imageMotorV = "stop";
     });
 
 });
@@ -109,8 +127,10 @@ app.get('/labstream', (req, res) => {
         <h1>LabStream</h1>
         <p>You have reached the LabStream server. You can see the gear values.</p>
         <p>Last adjusted: ${state.lastAdjusted || 'Have not been adjusted'}</p>
-        <p>Filter motor state: ${state.filterMotor}</p>
-        <p>Image motor state: ${state.imageMotor}</p>
+        <p>Filter motor H state: ${state.filterMotorH}</p>
+	<p>Filter motor V state: ${state.filterMotorV}</p>
+        <p>Image motor H state: ${state.imageMotorH}</p>
+	<p>Image motor V state: ${state.imageMotorV}</p>
         <p>To change the gear value, please visit our front end.</p>
         </body>
         </html>
@@ -120,9 +140,13 @@ app.get('/labstream', (req, res) => {
 app.get('/get_gears/:gear', (req, res) => {
     var value;
     if (req.params.gear === "1") {
-      value = state.filterMotor;
+      value = state.filterMotorH;
     } else if (req.params.gear === "2") {
-      value = state.imageMotor
+      value = state.filterMotorV
+    } else if (req.params.gear === "3") {
+      value = state.imageMotorH
+    } else if (req.params.gear === "4") {
+      value = state.imageMotorV
     }
     res.json(value);
 });
